@@ -1,78 +1,88 @@
-public class Ipcalc {
+public class ipcalc {
+
     public static void main(String[] args) {
-        String currVersion = "0.03";
-
         try {
-            // Controllo argomenti
-            if (args.length == 0 || args[0].equals("-h") || args[0].equals("-help")) {
-                System.out.println("Uso: java Ipcalc <IP>/<CIDR>");
-                return;
-            }
-
-            if (args[0].equals("-v") || args[0].equals("-version")) {
-                System.out.println("v" + currVersion);
-                return;
-            }
-
-            // Validazione
-            InputHandler.isValidIP(args[0]);
-
-            // Parsing
-            String[] parts = args[0].split("/");
-            Address ip = new Address(parts[0]);
-            
-            Netmask mask;
-            if (parts.length < 2) {
-                System.out.println("Netmask non specificata. Generazione automatica...");
-                mask = new Netmask(ip.getDefaultPrefix());
-            } else {
-                mask = new Netmask(Integer.parseInt(parts[1]));
-            }
-
-            // Output con concatenazione semplice
-            System.out.println("IP Address: " + ip.getDecimalDottedQuads());
-            System.out.println("Binary IP:  " + ip.getBinaryDotted());
-            System.out.println("Netmask:    " + mask.getDecimalDottedQuads() + " (/" + mask.getPrefix() + ")");
+            if (args.length == 0) throw new Exception("Usage: java ipcalc <IP>/<CIDR>");
+        
+            InputHandler.validate(args[0]);
 
         } catch (Exception e) {
-            System.out.println("Errore: " + e.getMessage());
+            System.out.println("Error: " + (e.getMessage().isEmpty() ? "Unknown error" : e.getMessage()));
             System.exit(1);
         }
     }
 
-    // --- CLASSI INTERNE STATICHE ---
-
+    // InputHandler: validation and processing of input
     public static class InputHandler {
-        public static void isValidIP(String in) throws Exception {
-            if (!in.matches("[0-9./]+")) throw new Exception("Caratteri non validi.");
-            String[] parts = in.split("/");
-            
-            String[] octets = parts[0].split("\\.");
-            if (octets.length != 4) throw new Exception("Formato IP errato (richiesto x.x.x.x).");
+        public static void validate(String in) throws Exception {
+            // Validazione preliminare
+            if (!in.matches("[0-9./]+")) throw new Exception("Illegal characters.");
 
-            if (parts.length > 1) {
-                try {
-                    int p = Integer.parseInt(parts[1]);
-                    if (p < 0 || p > 32) throw new Exception("CIDR fuori range (0-32).");
-                } catch (NumberFormatException e) {
-                    throw new Exception("CIDR deve essere un numero.");
-                }
+            String[] parts = in.split("/");
+            Address ip = new Address(parts[0]);
+            
+            // CIDR class to handle CIDR parsing and validation
+            Cidr cidr = new Cidr(parts.length > 1 ? parts[1] : null);
+            Netmask mask;
+
+            if (!cidr.isSet()) {
+                System.out.println("Unspecified Netmask. Generating...");
+                mask = new Netmask(ip.getDefaultPrefix());
+            } else {
+                mask = new Netmask(cidr.getValue());
             }
+
+            // Printing results...
+            OutputHandler.showResults(ip, mask);
         }
     }
 
+    // OutputHandler: formatting and displaying results
+    public static class OutputHandler {
+        public static void showResults(Address ip, Netmask mask) {
+            printRow("IP Address", ip);
+            printRow("Netmask", mask);
+        }
+
+        private static void printRow(String label, DottedQuad dq) {
+            System.out.format("%-15s %-18s %-15s%n", 
+                label + ":", 
+                dq.getDecimalDottedQuads(), 
+                dq.getBinaryDotted());
+        }
+    }
+
+    // CIDR class to handle CIDR parsing and validation
+    public static class Cidr {
+        private int value;
+        private boolean isSet = false;
+
+        public Cidr(String cidrStr) throws Exception {
+            if (cidrStr != null && !cidrStr.isEmpty()) {
+                try {
+                    this.value = Integer.parseInt(cidrStr);
+                    if (this.value < 0 || this.value > 32) throw new Exception("CIDR prefix out of bounds (0-32).");
+                    this.isSet = true;
+                } catch (NumberFormatException e) {
+                    throw new Exception("CIDR prefix must be a number.");
+                }
+            }
+        }
+        public boolean isSet() { return isSet; }
+        public int getValue() { return value; }
+    }
+
+    // DottedQuad, parent class to Address and Netmask
     public static abstract class DottedQuad {
         public abstract String getDecimalDottedQuads();
         public abstract String getBinaryDotted();
 
+        // Default Netmask prefix based on IP class
         public int getDefaultPrefix() {
-            // Logica delle classi di indirizzi IP (A, B, C)
-            String dec = getDecimalDottedQuads();
-            int firstOctet = Integer.parseInt(dec.split("\\.")[0]);
-
-            if (firstOctet >= 1 && firstOctet <= 126) return 8;   // Classe A
-            if (firstOctet >= 128 && firstOctet <= 191) return 16; // Classe B
-            if (firstOctet >= 192 && firstOctet <= 223) return 24; // Classe C
+            int firstOctet = Integer.parseInt(getDecimalDottedQuads().split("\\.")[0]);
+            if (firstOctet >= 1 && firstOctet <= 126) return 8;    // Class A
+            if (firstOctet >= 128 && firstOctet <= 191) return 16; // Class B
+            if (firstOctet >= 192 && firstOctet <= 223) return 24; // Class C
             return 32;
         }
     }
@@ -80,56 +90,47 @@ public class Ipcalc {
     public static class Address extends DottedQuad {
         private long decIP;
 
-        public Address(String strIP) {
-            this.decIP = strToLongIP(strIP);
-        }
+        // Costructors
+        public Address(String strIP) { this.decIP = strToLongIP(strIP); }
+        public Address(long decIP) { this.decIP = decIP & 0xFFFFFFFFL; }
 
-        public Address(long decIP) {
-            this.decIP = decIP & 0xFFFFFFFFL;
-        }
-
-        @Override
+        // Getters
         public String getDecimalDottedQuads() {
-            return ((decIP >> 24) & 0xFF) + "." +
-                   ((decIP >> 16) & 0xFF) + "." +
-                   ((decIP >> 8) & 0xFF) + "." +
-                   (decIP & 0xFF);
+            return ((decIP >> 24) & 0xFF) + "." + ((decIP >> 16) & 0xFF) + "." +
+                   ((decIP >> 8) & 0xFF) + "." + (decIP & 0xFF);
         }
 
-        @Override
         public String getBinaryDotted() {
-            String result = "";
+            String res = "";
             for (int i = 0; i < 4; i++) {
-                int octet = (int) ((decIP >> (24 - 8 * i)) & 0xFF);
-                String bin = Integer.toBinaryString(octet);
-                // Padding manuale senza StringBuilder
+                String bin = Integer.toBinaryString((int)(decIP >> (24 - 8 * i)) & 0xFF);
                 while (bin.length() < 8) bin = "0" + bin;
-                result += bin + (i < 3 ? "." : "");
+                res += bin + (i < 3 ? "." : "");
             }
-            return result;
+            return res;
         }
 
+
+        // Conversion from string IP to long integer
         private long strToLongIP(String str) {
             String[] parts = str.split("\\.");
             long res = 0;
-            for (int i = 0; i < 4; i++) {
-                res |= (Long.parseLong(parts[i]) << (24 - 8 * i));
-            }
+            for (int i = 0; i < 4; i++) res |= (Long.parseLong(parts[i]) << (24 - 8 * i));
             return res & 0xFFFFFFFFL;
         }
     }
 
+    // Netmask class given a CIDR prefix.
     public static class Netmask extends DottedQuad {
         private int prefix;
         private Address maskAddr;
 
         public Netmask(int prefix) {
             this.prefix = prefix;
-            // Calcolo della maschera binaria
             long maskInt = (prefix == 0) ? 0 : (0xFFFFFFFFL << (32 - prefix));
             this.maskAddr = new Address(maskInt);
         }
-
+        // Getters
         public int getPrefix() { return prefix; }
         public String getDecimalDottedQuads() { return maskAddr.getDecimalDottedQuads(); }
         public String getBinaryDotted() { return maskAddr.getBinaryDotted(); }
