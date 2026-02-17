@@ -1,5 +1,3 @@
-package ipcalc;
-
 /**
  *
  * @author alessandro.diluca
@@ -9,29 +7,29 @@ public class Ipcalc {
         String currVersion = "0.03";
 
         if (args.length == 0) {
-            System.out.println("Usa -help per la lista comandi");
+            System.out.println("Use -help for command list.");
             return;
         }
 
         if (args.length > 2) {
-            System.out.println("Troppi argomenti.");
+            System.out.println("Too many arguments.");
             return;
         }
 
-        if (args[0].equals("-help")) {
+        else if (args[0].equals("-help") || args[0].equals("-h")) {
             System.out.println("Command list:"
-                    + "\n-help: command list"
+                    + "\n-help || -h: command list"
                     + "\n-version: show current version"
                     + "\n-ipcalc <ip>: calculate IP");
             return;
         }
 
-        if (args[0].equals("-version")) {
+        else if (args[0].equals("-version") || args[0].equals("-v")) {
             System.out.println("v" + currVersion);
             return;
         }
 
-        if (args[0].equals("-ipcalc") && args.length == 2) {
+        else {
             Address ip = new Address(args[1]);
             System.out.println("Decimal dotted IP: "+ip.getDecimalDottedQuads());
             System.out.println("Integer IP (long): "+ip.getIntIP());
