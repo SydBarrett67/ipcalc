@@ -6,9 +6,11 @@ public class ipcalc {
     public static final String YELLOW = "\u001B[33m";
     public static final String CYAN = "\u001B[36m";
 
+    public static final String version = "0.03";
+
     public static void main(String[] args) {
         try {
-            if (args.length == 0) throw new Exception("Usage: java ipcalc <IP>/<CIDR>");
+            if (args.length == 0) throw new Exception("-help for command list.");
         
             InputHandler.validate(args[0]);
 
@@ -21,25 +23,34 @@ public class ipcalc {
     // InputHandler: validation and processing of input
     public static class InputHandler {
         public static void validate(String in) throws Exception {
-            // Validazione preliminare
-            if (!in.matches("[0-9./]+")) throw new Exception("Illegal characters.");
 
-            String[] parts = in.split("/");
-            Address ip = new Address(parts[0]);
-            
-            // CIDR class to handle CIDR parsing and validation
-            Cidr cidr = new Cidr(parts.length > 1 ? parts[1] : null);
-            Netmask mask;
-
-            if (!cidr.isSet()) {
-                System.out.println("Unspecified Netmask. Generating...");
-                mask = new Netmask(ip.getDefaultPrefix());
-            } else {
-                mask = new Netmask(cidr.getValue());
+            if (in.equals("-v") || in.equals("-version")) {
+                System.out.println("v"+version);
             }
+            else if (in.equals("-h") || in.equals("-help")) {
+                System.out.println("Command list:");
+                System.out.println("-h -help : print command list");
+                System.out.println("-v -version : print current version number");
+                System.out.println("<IP> <NM> : calculate IP address and Netmask information");
+            }
+            else {
+                String[] parts = in.split("/");
+                Address ip = new Address(parts[0]);
+                
+                // CIDR class to handle CIDR parsing and validation
+                Cidr cidr = new Cidr(parts.length > 1 ? parts[1] : null);
+                Netmask mask;
 
-            // Printing results...
-            OutputHandler.showResults(ip, mask);
+                if (!cidr.isSet()) {
+                    System.out.println("Unspecified Netmask. Generating...");
+                    mask = new Netmask(ip.getDefaultPrefix());
+                } else {
+                    mask = new Netmask(cidr.getValue());
+                }
+
+                // Printing results
+                OutputHandler.showResults(ip, mask);
+            }
         }
     }
 
