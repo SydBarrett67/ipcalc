@@ -52,17 +52,17 @@ public class ipcalc {
                 Address network = new Address(computeNetworkAddress(ip, mask));
                 Address broadcast = new Address(computeBroadcastAddress(ip, mask));
                 Address hostMin = new Address(computeHostMin(ip, mask));
-                // int hostMax = new Address(computeHostMax(ip, mask));
+                Address hostMax = new Address(computeHostMax(ip, mask));
 
                 // Printing results
-                OutputHandler.showResults(ip, mask, network, broadcast, hostMin);
+                OutputHandler.showResults(ip, mask, network, broadcast, hostMin, hostMax);
             }
         }
     }
 
     // OutputHandler: formatting and displaying results
     public static class OutputHandler {
-        public static void showResults(Address ip, Netmask mask, Address nwAddr, Address broadcast, Address hostMin) {
+        public static void showResults(Address ip, Netmask mask, Address nwAddr, Address broadcast, Address hostMin, Address hostMax) {
             System.out.println(CYAN + "--------------------------------------------------" + RESET);
             printRow("Indirizzo IP", ip, GREEN);
             printRow("Netmask", mask, GREEN);
@@ -70,6 +70,7 @@ public class ipcalc {
             printRow("Network Address", nwAddr, GREEN);
             printRow("Broadcast Address", broadcast, GREEN);
             printRow("Host min", hostMin, GREEN);
+            printRow("Host max", hostMax, GREEN);
             System.out.println(CYAN + "--------------------------------------------------\n" + RESET);
         }
 
@@ -199,7 +200,7 @@ public class ipcalc {
         return dec;
     }
 
-    public static long computeHostMin(Address ip, Netmask nm) {
+    public static long computeHostMax(Address ip, Netmask nm) {
 
         Address HostMaxAddr = new Address(computeBroadcastAddress(ip, nm));
 
