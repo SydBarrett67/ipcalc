@@ -10,6 +10,7 @@ public class ipcalc {
 
     public static void main(String[] args) {
         try {
+
             if (args.length == 0) throw new Exception("-help for command list.");
         
             InputHandler.validate(args[0]);
@@ -48,18 +49,25 @@ public class ipcalc {
                     mask = new Netmask(cidr.getValue());
                 }
 
+                Address network = new Address(computeNetworkAddress(ip, mask));
+                // Address broadcast = new Address(computeBroadcastAddress(ip, mask));
+                // int hostMin = new Address(computeHostMin(ip, mask));
+                // int hostMax = new Address(computeHostMax(ip, mask));
+
                 // Printing results
-                OutputHandler.showResults(ip, mask);
+                OutputHandler.showResults(ip, mask, network);
             }
         }
     }
 
     // OutputHandler: formatting and displaying results
     public static class OutputHandler {
-        public static void showResults(Address ip, Netmask mask) {
+        public static void showResults(Address ip, Netmask mask, Address nwAddr) {
             System.out.println(CYAN + "--------------------------------------------------" + RESET);
             printRow("Indirizzo IP", ip, GREEN);
             printRow("Netmask", mask, GREEN);
+            System.out.println(CYAN + "=>\n" + RESET);
+            printRow("Network Address", nwAddr, GREEN);
             System.out.println(CYAN + "--------------------------------------------------\n" + RESET);
         }
 
@@ -130,13 +138,16 @@ public class ipcalc {
             return res;
         }
 
-
         // Conversion from string IP to long integer
         private long strToLongIP(String str) {
             String[] parts = str.split("\\.");
             long res = 0;
             for (int i = 0; i < 4; i++) res |= (Long.parseLong(parts[i]) << (24 - 8 * i));
             return res & 0xFFFFFFFFL;
+        }
+
+        private long getDecIP() {
+            return this.decIP;
         }
     }
 
@@ -154,5 +165,17 @@ public class ipcalc {
         public int getPrefix() { return prefix; }
         public String getDecimalDottedQuads() { return maskAddr.getDecimalDottedQuads(); }
         public String getBinaryDotted() { return maskAddr.getBinaryDotted(); }
+    }
+
+
+
+    // NETWORK CALCULATION FUNCTIONS
+    public static long computeNetworkAddress(Address ip, Netmask nm) {
+        long ipBits = ip.getDecIP();
+        long maskBits = new Address(nm.getDecimalDottedQuads()).getDecIP();
+        
+        long networkBits = ipBits & maskBits;
+        
+        return networkBits;
     }
 }
