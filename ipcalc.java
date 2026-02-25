@@ -50,24 +50,26 @@ public class ipcalc {
                 }
 
                 Address network = new Address(computeNetworkAddress(ip, mask));
-                // Address broadcast = new Address(computeBroadcastAddress(ip, mask));
-                // int hostMin = new Address(computeHostMin(ip, mask));
+                Address broadcast = new Address(computeBroadcastAddress(ip, mask));
+                Address hostMin = new Address(computeHostMin(ip, mask));
                 // int hostMax = new Address(computeHostMax(ip, mask));
 
                 // Printing results
-                OutputHandler.showResults(ip, mask, network);
+                OutputHandler.showResults(ip, mask, network, broadcast, hostMin);
             }
         }
     }
 
     // OutputHandler: formatting and displaying results
     public static class OutputHandler {
-        public static void showResults(Address ip, Netmask mask, Address nwAddr) {
+        public static void showResults(Address ip, Netmask mask, Address nwAddr, Address broadcast, Address hostMin) {
             System.out.println(CYAN + "--------------------------------------------------" + RESET);
             printRow("Indirizzo IP", ip, GREEN);
             printRow("Netmask", mask, GREEN);
             System.out.println(CYAN + "=>\n" + RESET);
             printRow("Network Address", nwAddr, GREEN);
+            printRow("Broadcast Address", broadcast, GREEN);
+            printRow("Host min", hostMin, GREEN);
             System.out.println(CYAN + "--------------------------------------------------\n" + RESET);
         }
 
@@ -177,5 +179,32 @@ public class ipcalc {
         long networkBits = ipBits & maskBits;
         
         return networkBits;
+    }
+
+    public static long computeBroadcastAddress(Address ip, Netmask nm) {
+        long ipBits = ip.getDecIP();
+        long maskBits = new Address(nm.getDecimalDottedQuads()).getDecIP();
+        
+        long invertedMask = (~maskBits) & 0xFFFFFFFFL;
+        
+        return ipBits | invertedMask;
+    }
+
+    public static long computeHostMin(Address ip, Netmask nm) {
+
+        Address HostMinAddr = new Address(computeNetworkAddress(ip, nm));
+
+        long dec = HostMinAddr.getDecIP() + 1;
+
+        return dec;
+    }
+
+    public static long computeHostMin(Address ip, Netmask nm) {
+
+        Address HostMaxAddr = new Address(computeBroadcastAddress(ip, nm));
+
+        long dec = HostMaxAddr.getDecIP() - 1;
+
+        return dec;
     }
 }
