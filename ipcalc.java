@@ -6,9 +6,18 @@ public class ipcalc {
     public static final String YELLOW = "\u001B[33m";
     public static final String CYAN = "\u001B[36m";
 
-    public static final String version = "0.03";
+    public static final String version = "0.4";
+
 
     public static void main(String[] args) {
+        if (System.getProperty("os.name").contains("Windows")) {
+            try {
+                new ProcessBuilder("cmd", "/c").inheritIO().start().waitFor();
+            } catch (Exception e) {
+                System.out.println("Colors are not supported.");
+            }
+        }
+
         try {
 
             if (args.length == 0) throw new Exception("-help for command list.");
@@ -16,7 +25,7 @@ public class ipcalc {
             InputHandler.validate(args[0]);
 
         } catch (Exception e) {
-            System.out.println(RED + "Error: " + e.getMessage() + RESET);
+            System.out.println(RED + "Illegal argument." + RESET);
             System.exit(1);
         }
     }
@@ -53,16 +62,17 @@ public class ipcalc {
                 Address broadcast = new Address(computeBroadcastAddress(ip, mask));
                 Address hostMin = new Address(computeHostMin(ip, mask));
                 Address hostMax = new Address(computeHostMax(ip, mask));
+                double nHost = computeHostNumber(mask);
 
                 // Printing results
-                OutputHandler.showResults(ip, mask, network, broadcast, hostMin, hostMax);
+                OutputHandler.showResults(ip, mask, network, broadcast, hostMin, hostMax, nHost);
             }
         }
     }
 
     // OutputHandler: formatting and displaying results
     public static class OutputHandler {
-        public static void showResults(Address ip, Netmask mask, Address nwAddr, Address broadcast, Address hostMin, Address hostMax) {
+        public static void showResults(Address ip, Netmask mask, Address nwAddr, Address broadcast, Address hostMin, Address hostMax, double nHost) {
             System.out.println(CYAN + "--------------------------------------------------" + RESET);
             printRow("Indirizzo IP", ip, GREEN);
             printRow("Netmask", mask, GREEN);
@@ -71,6 +81,7 @@ public class ipcalc {
             printRow("Broadcast Address", broadcast, GREEN);
             printRow("Host min", hostMin, GREEN);
             printRow("Host max", hostMax, GREEN);
+            printRow("Host/Net", nHost, ip, mask, GREEN);
             System.out.println(CYAN + "--------------------------------------------------\n" + RESET);
         }
 
@@ -79,7 +90,36 @@ public class ipcalc {
             System.out.format("%-15s " + color + "%-18s" + RESET + " %-15s%n", 
                 label + ":", 
                 dq.getDecimalDottedQuads(), 
-                dq.getBinaryDotted());
+                dq.getBinaryDotted()
+            );
+        }
+
+        private static void printRow(String label, double num, DottedQuad dq, Netmask nm, String color) {
+            // Class
+            String classStr = "Unknown class";
+            int bits = dq.getDefaultPrefix();
+            switch(bits) {
+                case 8:
+                    classStr="A";
+                    break;
+                case 16:
+                    classStr="B";
+                    break;
+                case 24:
+                    classStr="C";
+                    break;
+            }
+
+            // Private / Public
+            String status = computeNetStatus(dq, nm);
+
+
+            // String formatting with color and alignment
+            System.out.format("%-15s " + color + "%-18s" + RESET + " %-15s%n", 
+                label + ":", 
+                num,
+                "Class " + classStr + ", " + status
+            );
         }
     }
 
@@ -207,5 +247,50 @@ public class ipcalc {
         long dec = HostMaxAddr.getDecIP() - 1;
 
         return dec;
+    }
+
+    public static double computeHostNumber(Netmask nm) {
+
+        int bits = 32 - nm.getPrefix();
+
+        return Math.pow(2, bits) - 2;
+    }
+
+    public static String computeNetStatus(DottedQuad ip, Netmask nm) {
+        String ipStr = ip.getDecimalDottedQuads();
+        String nmStr = nm.getDecimalDottedQuads();
+
+        String[] ipParts = ipStr.split("\\.");
+        String[] nmParts = nmStr.split("\\.");
+        
+        long startIp = 0;
+        long endIp = 0;
+
+        for (int i = 0; i < 4; i++) {
+            int ipOct = Integer.parseInt(ipParts[i]);
+            int nmOct = Integer.parseInt(nmParts[i]);
+
+            startIp = (startIp << 8) | (ipOct & nmOct);
+            // Broadcast Address: IP OR (NOT Mask)
+            endIp = (endIp << 8) | (ipOct | (~nmOct & 0xFF));
+        }
+
+        String[] results = new String[2];
+        long[] checks = {startIp, endIp};
+
+        for (int i = 0; i < 2; i++) {
+            long addr = checks[i];
+            if (addr >= 0x0A000000L && addr <= 0x0AFFFFFFL) results[i] = "private";
+            else if (addr >= 0xAC100000L && addr <= 0xAC1FFFFFL) results[i] = "private";
+            else if (addr >= 0xC0A80000L && addr <= 0xC0A8FFFFL) results[i] = "private";
+            else if (addr >= 0x7F000000L && addr <= 0x7FFFFFFFL) results[i] = "loopback";
+            else results[i] = "public";
+        }
+
+        if (results[0].equals(results[1])) {
+            return results[0]; 
+        } else {
+            return "in part private and public";
+        }
     }
 }
